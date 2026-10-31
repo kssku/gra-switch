@@ -390,5 +390,70 @@ miio/miot_device.py:23: FutureWarning: functools.partial will be a method descri
 来自 python-miio 自身兼容性提示，走 stderr，退出码不受影响（`--help` 仍是 0）。
 嫌吵就 `2>/dev/null`，但建议留着，方便发现 miio 后续真出问题时。
 
-设备偶发 `user ack timeout`（ERROR miio.miioprotocol）属于网络/设备休眠，
-重试一次通常就好，不是命令装坏了。
+`user ack timeout` 是 python-miio 的**重试中间日志**：底层会自动重试 3 次，
+只要最终成功，命令行仍会正常输出 `on` / `off`，退出码 0，此时状态是可信的。
+
+**但如果 3 次重试全部失败**，本库会明确报错（见下一节），绝不会把「没应答」
+伪装成 `off`。
+
+---
+
+## 6. 错误处理（重要）
+
+### 6.1 核心原则：无应答 ≠ 关
+
+设备没应答时，我们**不知道**它是开还是关。把这种情况当成 `off` 在自动化里是致命的：
+定时脚本拿到假 `off`，可能重复开灯、或误判「已经关了」而不去关。
+
+本库的处理：
+
+| 情况 | 行为 | 退出码 |
+| --- | --- | --- |
+| 真读到 `code:0` + `value:false` | 输出 `off` | 0 |
+| 真读到 `code:0` + `value:true` | 输出 `on` | 0 |
+| 超时 / 设备无应答 | stderr 输出 `error: 设备无应答，无法确定开关状态` | 3 |
+| 设备不可达（网络层） | stderr 输出 `error: 设备不可达` | 4 |
+| 设备返回异常响应（非超时） | stderr 输出 `error: ...` | 1 |
+| 配置 / token 错误 | stderr 输出 `error: ...` | 1 |
+
+**退出码 3 是「状态未知」的信号**，脚本里必须单独处理，不能和 0 混为一谈。
+
+### 6.2 脚本里怎么判断
+
+```bash
+gra status
+case $? in
+  0) ;;                                   # 正常，stdout 是 on/off
+  3) echo '设备无应答，状态未知' >&2; exit 1 ;;   # 关键：不要当作 off
+  *) echo '读取失败' >&2; exit 1 ;;
+esac
+```
+
+Python 里：
+
+```python
+from gra_switch import GraSwitch, GraSwitchTimeoutError
+
+with GraSwitch(timeout=5) as sw:
+    try:
+        state = sw.status()          # True/False，保证是真读到的
+    except GraSwitchTimeoutError:
+        state = None                 # 未知，和 False 严格区分
+        log.warning('设备无应答，状态未知，跳过本次决策')
+```
+
+### 6.3 异常层次
+
+```
+GraSwitchError                 # 基类
+├── GraSwitchAuthError         # 配置 / token 问题
+├── GraSwitchTimeoutError      # 超时 / 无应答 —— 状态未知！
+├── GraSwitchOfflineError      # 网络不可达
+├── GraSwitchResponseError     # 设备返回了非预期响应
+└── GraSwitchVerifyError       # 写后回读未达期望
+```
+
+`on()` / `off()` / `toggle()` 遇到超时同样抛 `GraSwitchTimeoutError`，不会静默失败。
+`verify_write()` 如果在整个轮询窗口内一次都没读到值，也抛 `GraSwitchTimeoutError`；
+只有在**读到了真实值、但迟迟不等于期望值**时才返回 `False`。
+这两个含义不同，不要混用。

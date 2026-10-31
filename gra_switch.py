@@ -94,6 +94,20 @@ VERIFY_TIMEOUT = 10.0
 #: 设备型号
 MODEL = "giot.plug.v7icw"
 
+#: miIO 底层在「设备无应答」时抛出的 DeviceException 消息特征。
+#: 命中任意一条即视为通信超时，**绝不允许**渲染成 False/off。
+#:   - "Unable to recover failed command" <- user ack timeout (-9999)
+#:   - "No response from the device"       <- socket timed out / OSError
+#:   - "Unable to discover the device"     <- 握手失败
+TIMEOUT_MARKERS = (
+    "user ack timeout",
+    "timed out",
+    "timeout",
+    "no response from the device",
+    "unable to recover failed command",
+    "unable to discover the device",
+)
+
 
 # --------------------------------------------------------------------------
 # 异常
@@ -107,7 +121,11 @@ class GraSwitchAuthError(GraSwitchError):
 
 
 class GraSwitchTimeoutError(GraSwitchError):
-    """通信或写后验证超时。"""
+    """通信超时 / 设备无应答，**状态未知**。
+
+    抛出本异常意味着：我们没能从设备拿到有效应答，
+    当前开关状态是**未知**的，不能当作 off 处理。
+    """
 
 
 class GraSwitchOfflineError(GraSwitchError):
@@ -120,6 +138,23 @@ class GraSwitchResponseError(GraSwitchError):
 
 class GraSwitchVerifyError(GraSwitchError):
     """写操作已下发，但回读验证未达到期望状态。"""
+
+
+def _is_timeout_exception(exc: BaseException) -> bool:
+    """判断异常是否属于「设备无应答」语义。
+
+    除了标准 TimeoutError，还要认 python-miio 的 DeviceException —— 它把
+    ack 超时（-9999）/ socket 超时统一包成普通 Exception，消息里带特征串。
+    """
+    if isinstance(exc, TimeoutError):
+        return True
+    text = ("%s" % exc).lower()
+    if any(marker in text for marker in TIMEOUT_MARKERS):
+        return True
+    cause = exc.__cause__
+    if cause is not None and cause is not exc:
+        return _is_timeout_exception(cause)
+    return False
 
 
 # --------------------------------------------------------------------------
@@ -296,6 +331,14 @@ class GraSwitch:
         except OSError as exc:
             raise GraSwitchOfflineError(f"{method} 网络不可达：{exc}") from exc
         except Exception as exc:  # noqa: BLE001 - 兜底翻译
+            # python-miio 在 ack 超时 / 收不到回包时抛 DeviceException，
+            # 消息形如 "Unable to recover failed command"（内含 user ack timeout）
+            # 或 "No response from the device"。这类**不是**响应异常，
+            # 而是通信无应答 —— 必须翻译成 Timeout，不能当 False。
+            if _is_timeout_exception(exc):
+                raise GraSwitchTimeoutError(
+                    f"{method} 设备无应答（{self.timeout}s 内未收到有效回包）：{exc}"
+                ) from exc
             raise GraSwitchResponseError(f"{method} 失败：{exc}") from exc
 
     @staticmethod
@@ -308,6 +351,11 @@ class GraSwitch:
             raise GraSwitchResponseError(f"{what} 响应格式异常：{first!r}")
         code = first.get("code")
         if code != 0:
+            # -9999 / -30001 是 miIO 的可恢复错误码，本质是 ack 超时 —— 无应答
+            if code in (-9999, -30001):
+                raise GraSwitchTimeoutError(
+                    f"{what} 设备无应答，code={code}，详情={first!r}"
+                )
             raise GraSwitchResponseError(f"{what} 失败，code={code}，详情={first!r}")
         return True
 
@@ -319,15 +367,23 @@ class GraSwitch:
         **不要**用 ``siid=2, piid=1`` 读，那个字段永远返回 True。
 
         :return: True=开，False=关
+        :raises GraSwitchTimeoutError: 设备无应答，状态**未知**（绝不返回假 False）
+        :raises GraSwitchResponseError: 设备返回了无法解析的响应
         """
-        return bool(self.raw_get(STATE_SIID, STATE_PIID))
+        value = self.raw_get(STATE_SIID, STATE_PIID)
+        if not isinstance(value, bool):
+            raise GraSwitchResponseError(
+                f"状态位 {STATE_SIID}-{STATE_PIID} 返回非布尔值：{value!r}"
+            )
+        return value
 
     def verify_write(self, expected: bool, timeout: float = VERIFY_TIMEOUT) -> bool:
         """写后回读验证：轮询 ``7-1`` 直到等于 expected 或超时。
 
         :param expected: 期望的真实状态
         :param timeout: 总超时秒数，默认 10
-        :return: True=已同步到期望状态；False=超时仍不一致
+        :return: True=已同步到期望状态；False=读到真实值但迟迟不等于期望值
+        :raises GraSwitchTimeoutError: 整个轮询周期内设备始终无应答，状态未知
         """
         deadline = time.monotonic() + timeout
         expected = bool(expected)
@@ -347,8 +403,15 @@ class GraSwitch:
                 break
             time.sleep(VERIFY_INTERVAL)
 
+        # 全程无一次成功读到值 -> 状态未知，必须报错，不能返回 False
+        if last is None:
+            raise GraSwitchTimeoutError(
+                f"verify_write 在 {timeout}s 内始终无法读取状态"
+                f"（期望 {expected}，最后错误：{last_err!r}）"
+            ) from last_err
+
         LOGGER.warning(
-            "verify_write 超时：期望 %s，最后读到 %r（error=%r）", expected, last, last_err
+            "verify_write 超时：期望 %s，最后读到 %r", expected, last
         )
         return False
 
@@ -515,8 +578,14 @@ def main(argv: Optional[list[str]] = None) -> int:
                 print("ok" if sw.raw_set(args.siid, args.piid, args.value) else "failed")
             elif args.cmd == "action":
                 print("ok" if sw.action(args.siid, args.aiid) else "failed")
+    except GraSwitchTimeoutError as exc:
+        print(f"error: 设备无应答，无法确定开关状态（{exc}）", file=sys.stderr)
+        return 3
+    except GraSwitchOfflineError as exc:
+        print(f"error: 设备不可达（{exc}）", file=sys.stderr)
+        return 4
     except GraSwitchError as exc:
-        print(f"错误：{exc}", file=sys.stderr)
+        print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0
 
