@@ -12,11 +12,11 @@
 # ============================================================================
 
 # ---- 按你的实际路径改这两行 ----------------------------------------------
-VENV_PYTHON="/root/test/.venv-miio/bin/python"   # venv 里的 python
-GRA_SCRIPT="/root/test/gra_switch.py"             # 本仓库的脚本
+VENV_PYTHON="$HOME/.venv-miio/bin/python"   # venv 里的 python
+GRA_SCRIPT="$HOME/gra-switch/gra_switch.py"             # 本仓库的脚本
 
 # ---- 可选：指定配置文件（不设则走默认查找链）-----------------------------
-# CONFIG_FILE="/root/test/.miio-device-token"
+# CONFIG_FILE="$HOME/.config/gra-switch/.miio-device-token"
 CONFIG_FILE=""
 
 # ---- 参数处理：cron 里传 on / off / status 即可 --------------------------

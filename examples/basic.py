@@ -2,7 +2,7 @@
 """Gra智能控制器V7 —— 基本读写示例。
 
 运行前先配好 token（任选其一）：
-    export MIIO_IP=192.168.31.194 MIIO_TOKEN=<32位hex> MIIO_DID=2031986608
+    export MIIO_IP=192.0.2.10 MIIO_TOKEN=<32位hex> MIIO_DID=2031986608
     # 或把 .env.example 复制成 .miio-device-token 填好放在本项目目录
 
 运行：

@@ -1,8 +1,8 @@
 # Gra智能控制器V7（giot.plug.v7icw）使用手册
 
-> 模块路径：`/root/test/gra_switch.py`
-> venv：`/root/test/.venv-miio`（python-miio 0.5.12）
-> token 文件：`/root/test/.miio-device-token`（600 权限，4 行 `KEY=VALUE`）
+> 模块路径：`<项目目录>/gra_switch.py`
+> venv：`<项目目录>/.venv-miio`（python-miio 0.5.12）
+> token 文件：`~/.config/gra-switch/.miio-device-token`（600 权限，4 行 `KEY=VALUE`）
 
 ---
 
@@ -11,15 +11,15 @@
 venv 里已有 python-miio 0.5.12，无需再装：
 
 ```bash
-/root/test/.venv-miio/bin/python -c "import miio; print(miio.__version__)"
+<项目目录>/.venv-miio/bin/python -c "import miio; print(miio.__version__)"
 # 0.5.12
 ```
 
 如果要重新建环境：
 
 ```bash
-python3 -m venv /root/test/.venv-miio
-/root/test/.venv-miio/bin/pip install "python-miio==0.5.12"
+python3 -m venv <项目目录>/.venv-miio
+<项目目录>/.venv-miio/bin/pip install "python-miio==0.5.12"
 ```
 
 ---
@@ -31,7 +31,7 @@ python3 -m venv /root/test/.venv-miio
 命令行：
 
 ```bash
-cd /root/test && /root/test/.venv-miio/bin/python gra_switch.py status
+cd <项目目录> && <项目目录>/.venv-miio/bin/python gra_switch.py status
 # on
 ```
 
@@ -51,16 +51,16 @@ with GraSwitch() as sw:
 
 ```cron
 # crontab -e
-0 7  * * * cd /root/test && /root/test/.venv-miio/bin/python gra_switch.py on  >> /var/log/gra_switch.log 2>&1
-0 23 * * * cd /root/test && /root/test/.venv-miio/bin/python gra_switch.py off >> /var/log/gra_switch.log 2>&1
+0 7  * * * cd <项目目录> && <项目目录>/.venv-miio/bin/python gra_switch.py on  >> /var/log/gra_switch.log 2>&1
+0 23 * * * cd <项目目录> && <项目目录>/.venv-miio/bin/python gra_switch.py off >> /var/log/gra_switch.log 2>&1
 ```
 
 安装方式：
 
 ```bash
 ( crontab -l 2>/dev/null; \
-  echo '0 7  * * * cd /root/test && /root/test/.venv-miio/bin/python gra_switch.py on  >> /var/log/gra_switch.log 2>&1'; \
-  echo '0 23 * * * cd /root/test && /root/test/.venv-miio/bin/python gra_switch.py off >> /var/log/gra_switch.log 2>&1' \
+  echo '0 7  * * * cd <项目目录> && <项目目录>/.venv-miio/bin/python gra_switch.py on  >> /var/log/gra_switch.log 2>&1'; \
+  echo '0 23 * * * cd <项目目录> && <项目目录>/.venv-miio/bin/python gra_switch.py off >> /var/log/gra_switch.log 2>&1' \
 ) | crontab -
 crontab -l   # 核对
 ```
@@ -69,7 +69,7 @@ crontab -l   # 核对
 
 ### 1.3 接入自己的项目
 
-把 `gra_switch.py` 放到项目里（或 `sys.path.append` 指向 `/root/test`），然后：
+把 `gra_switch.py` 放到项目里（或 `sys.path.append` 指向 `<项目目录>`），然后：
 
 ```python
 import logging
@@ -157,8 +157,8 @@ if __name__ == "__main__":
 ## 3. CLI 完整用法
 
 ```bash
-P=/root/test/.venv-miio/bin/python
-M=/root/test/gra_switch.py
+P=<项目目录>/.venv-miio/bin/python
+M=<项目目录>/gra_switch.py
 
 $P $M status            # 读状态：on / off
 $P $M info              # 设备信息：model / fw / hw / mac / ip
@@ -229,7 +229,7 @@ WARNING miio.miot_device: Neither the class nor the parameter defines the mappin
 
 ## 5. 安全提醒
 
-- token 存在 `/root/test/.miio-device-token`，权限 600，**不要贴到聊天、日志、git**。
+- token 存在 `~/.config/gra-switch/.miio-device-token`，权限 600，**不要贴到聊天、日志、git**。
 - 模块里 `mask_token()` 只显示首尾 4 位，打印时用这个。
 - `raw-set` 子命令强制 `--yes` 才执行，防止手滑。
 
@@ -312,10 +312,10 @@ miIO 协议要求 `did` 为字符串。token 文件里的 `DID=2031986608` 读�
 
 ```sh
 #!/bin/sh
-exec /root/test/.venv-miio/bin/python /root/test/gra_switch.py "$@"
+exec <项目目录>/.venv-miio/bin/python <项目目录>/gra_switch.py "$@"
 ```
 
-`gra_switch.py` 的 shebang 也已改为 `#!/root/test/.venv-miio/bin/python`（原来是
+`gra_switch.py` 的 shebang 也已改为 `#!<项目目录>/.venv-miio/bin/python`（原来是
 `#!/usr/bin/env python3`，系统 python3 没有 python-miio，直接执行会 ImportError）。
 
 现在**任何目录、任何 shell** 都能直接用：
@@ -362,7 +362,7 @@ grep -qxF 'export PATH="/usr/local/bin:$PATH"' ~/.profile 2>/dev/null \
 rm /usr/local/bin/gra
 ```
 
-脚本本体仍在 `/root/test/gra_switch.py`，venv 不受影响。
+脚本本体仍在 `<项目目录>/gra_switch.py`，venv 不受影响。
 
 ### 4. 换 venv 或脚本路径时改哪里
 

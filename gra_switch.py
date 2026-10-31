@@ -1,4 +1,4 @@
-#!/root/test/.venv-miio/bin/python
+#!/usr/bin/env python3
 """Gra智能控制器V7（giot.plug.v7icw）开关控制库。
 
 ⚠️ 本型号的坑（务必先读）
@@ -56,8 +56,8 @@ try:
     from miio import MiotDevice  # type: ignore
 except ImportError as exc:  # pragma: no cover - 环境缺依赖时给出明确提示
     raise SystemExit(
-        "缺少依赖 python-miio，请用 /root/test/.venv-miio/bin/python 运行，"
-        "或执行：pip install python-miio"
+        "缺少依赖 python-miio，请先 pip install python-miio "
+        "（或在本项目 venv 中运行）"
     ) from exc
 
 
@@ -67,7 +67,12 @@ LOGGER = logging.getLogger(__name__)
 # 常量
 # --------------------------------------------------------------------------
 #: 旧的硬编码路径，仅作向后兼容的查找候选（不推荐使用）
-LEGACY_TOKEN_FILE = Path("/root/test/.miio-device-token")
+LEGACY_TOKEN_FILE = Path(
+    os.environ.get(
+        "GRA_LEGACY_TOKEN_FILE",
+        str(Path.home() / ".config" / "gra-switch" / ".miio-device-token"),
+    )
+)
 
 #: 项目目录下的默认配置文件名
 PROJECT_CONFIG_NAME = ".miio-device-token"
@@ -165,7 +170,7 @@ def _discover_config_file() -> Optional[Path]:
 
     查找链：
         1. 项目目录（本文件所在目录）下的 ``.miio-device-token``
-        2. 旧路径 ``/root/test/.miio-device-token``
+        2. 旧路径 ``~/.config/gra-switch/.miio-device-token``
         3. ``~/.config/gra-switch/config``
     """
     candidates = [
@@ -189,7 +194,7 @@ def load_device_config(path: Optional[str | Path] = None) -> dict[str, str]:
 
     文件格式（每行一个，``KEY=VALUE``）::
 
-        IP=192.168.31.194
+        IP=192.0.2.10
         TOKEN=<32位hex>
         DID=2031986608
         MODEL=giot.plug.v7icw
@@ -197,7 +202,7 @@ def load_device_config(path: Optional[str | Path] = None) -> dict[str, str]:
     查找顺序（前面的优先，找到第一个存在的文件即用）：
         1. 显式传入的 ``path`` / ``--config`` 参数（指定了就不再找别的）
         2. 项目目录（本文件所在目录）下的 ``.miio-device-token``
-        3. 旧路径 ``/root/test/.miio-device-token``（向后兼容）
+        3. 旧路径 ``~/.config/gra-switch/.miio-device-token``（向后兼容）
         4. ``~/.config/gra-switch/config``
     环境变量 ``MIIO_IP`` / ``MIIO_TOKEN`` / ``MIIO_DID`` 始终覆盖文件中的同名字段。
 

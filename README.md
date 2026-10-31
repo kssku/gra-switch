@@ -14,7 +14,7 @@
 | 芯片 | BL602 |
 | 固件 | `1.0.3_0004` |
 | 协议 | miIO over UDP，端口 `54321` |
-| 参考 IP | `192.168.31.194`（示例，实际以你自己的为准） |
+| 参考 IP | `192.0.2.10`（示例，实际以你自己的为准） |
 | 参考 did | `2031986608`（示例） |
 
 **为什么不是小米设备却走 miIO？**
@@ -39,7 +39,7 @@ pip install -r requirements.txt
 ### 方式 A：环境变量（推荐用于临时/CI）
 
 ```bash
-export MIIO_IP=192.168.31.194
+export MIIO_IP=192.0.2.10
 export MIIO_TOKEN=<32位十六进制>
 export MIIO_DID=2031986608
 ```
@@ -57,7 +57,7 @@ $EDITOR .miio-device-token
 格式为每行 `KEY=VALUE`：
 
 ```
-IP=192.168.31.194
+IP=192.0.2.10
 TOKEN=<32位十六进制>
 DID=2031986608
 MODEL=giot.plug.v7icw
@@ -70,7 +70,7 @@ MODEL=giot.plug.v7icw
 不指定任何东西时，按以下顺序找第一个存在的文件：
 
 1. 项目目录下的 `.miio-device-token`
-2. `/root/test/.miio-device-token`（历史路径，向后兼容）
+2. `~/.config/gra-switch/.miio-device-token`（历史路径，向后兼容）
 3. `~/.config/gra-switch/config`
 
 环境变量始终**覆盖**文件中的同名字段。

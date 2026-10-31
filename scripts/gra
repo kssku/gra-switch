@@ -1,4 +1,11 @@
 #!/bin/sh
-# gra —— Gra 智能控制器系统级入口（包装 /root/test/gra_switch.py）
+# gra —— Gra 智能控制器系统级入口（包装本仓库的 gra_switch.py）
+# 安装：cp scripts/gra /usr/local/bin/gra && chmod +x /usr/local/bin/gra
 # 卸载：rm /usr/local/bin/gra
-exec /root/test/.venv-miio/bin/python /root/test/gra_switch.py "$@"
+#
+# 可用环境变量覆盖：
+#   GRA_PYTHON  解释器路径（默认 python3）
+#   GRA_SCRIPT  gra_switch.py 路径（默认脚本所在目录的上一级）
+GRA_PYTHON="${GRA_PYTHON:-python3}"
+GRA_SCRIPT="${GRA_SCRIPT:-$(dirname "$0")/../gra_switch.py}"
+exec "$GRA_PYTHON" "$GRA_SCRIPT" "$@"
