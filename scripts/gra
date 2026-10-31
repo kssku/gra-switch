@@ -1,0 +1,4 @@
+#!/bin/sh
+# gra —— Gra 智能控制器系统级入口（包装 /root/test/gra_switch.py）
+# 卸载：rm /usr/local/bin/gra
+exec /root/test/.venv-miio/bin/python /root/test/gra_switch.py "$@"

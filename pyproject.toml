@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gra-switch"
+version = "0.1.0"
+description = "Gra智能控制器V7（giot.plug.v7icw）局域网 miIO 直控模块"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "红尘笑" }]
+dependencies = ["python-miio==0.5.12"]
+
+[project.scripts]
+gra-switch = "gra_switch:main"
+
+[tool.setuptools]
+py-modules = ["gra_switch"]

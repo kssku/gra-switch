@@ -1,0 +1,27 @@
+# ===== 凭据（绝对不能进仓库）=====
+.miio-device-token
+*.token
+.env
+.env.local
+config.toml
+credentials*
+*.bak
+*.bak.*
+*.py.tmp
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.pytest_cache/
+
+# ===== 编辑器 / 系统 =====
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
